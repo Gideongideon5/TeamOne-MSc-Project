@@ -40,6 +40,7 @@ Prophet
 - The air quality data used is PM2.5 found in the data folder of this repository
 - execute the script in R studio and make sure all the libraries have been installed 
 (Use Prophet model to identify the trends in traffic flow)
+A step by step guide is also included in the Prophet Model Analysis document 
 
 ARIMA Model and SVC
 - load the Arima model python code loacted in the ARIMA folder with data from the data folder 
