@@ -2,11 +2,11 @@
 Msc-Group-Project
 The repository is for MSc Group Project for MSc Student at the University of Bradford.
 
-Jesutofunmi Ibrahim
-Yahya Hussain
-Bilal Khan
-Gideon Gideon
-Amjad Ali
+- Jesutofunmi Ibrahim
+- Yahya Hussain
+- Bilal Khan
+- Gideon Gideon
+- Amjad Ali
 The Projects looks at identifying highly congested traffic zones within the city of Chicago and finding possible correlation with the air quality monitors in proximity. Machine learning algorithms are implemented on the data in two phases Phase one
 
 The algorithms are implemented on data extract from 2018 with 4 idenfied zones in the air quality index
@@ -33,10 +33,11 @@ Historical traffic data can be downloaded from the traffic congestion website, t
 - perform data cleaning on the PM2.5 or AQI2014-2020 datset
 
 
-Prophet
+Prophet 
 - The Traffic data can be downloaded from the traffic Congestion site
 - The air quality data used is PM2.5 found in the data folder of this repository
 - execute the script in R studio and make sure all the libraries have been installed 
+(Use Prophet model to identify the trends in traffic flow)
 
 ARIMA Model and SVC
 - load the Arima model python code loacted in the ARIMA folder with data from the data folder 
