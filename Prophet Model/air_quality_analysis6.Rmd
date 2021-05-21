@@ -1,0 +1,528 @@
+---
+title: "Air Quality Analysis"
+
+geometry: "left=2cm,right=1cm,top=1.5cm,bottom=1.5cm"
+output:
+  word_document:
+    reference_docx: markdown_template.docx
+    toc: yes
+  html_document:
+    df_print: paged
+    toc: yes
+---
+
+# Introduction
+
+## Formulation of the problem
+
+
+## Software
+
+This work was done with the help of a free [RStudio](https://www.rstudio.com/) software that was used to create and run [R Markdown](http://rmarkdown.rstudio.com) Notebook. The present paper is the result of this notebook script execution. Anybody having this script can reproduce this document on the same or another data file having the same format. Besides, a free educational version of  [RapiMiner](https://rapidminer.com/) software was used to preliminary estimate performances of different Machine Learning methods on the given data set. This software allows to get the results in the auto-modelling mode without any special investigation and data preparation. However, the details of the calculations are keeping hidden that does not allow to check out all the tasks of this work. 
+
+### Instructions for running the code
+
+How to run R-script on PC locally.
+
+1. First, [install R](https://www.r-project.org/).
+2. Second, [install R-Studio](https://www.rstudio.com/products/rstudio/download/#download).
+3. Optionally in the future (do not do it now), [install RTools](https://cran.r-project.org/bin/windows/Rtools/).
+4. Open R-Studio and open the R-script.
+5. Set working directory in menu Session/Set working directory/ To the source location (Optionally, this script does it itself).
+6. This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute a code within the notebook, the results appear beneath the code.
+7. Run the calculations by clicking the button Knit and select 'to HTML or Word'.
+8. In the resulting window click 'Open in browser' and print it into PDF file or open for editing in MS Word or any other editor.
+
+## Setup
+
+### Set working directory
+
+First, we should set some options and the current file location as the default working directory. All supporting files applied to the code should also be copied to this directory.
+
+```{r Setup, echo = FALSE}
+# set the number of days to be predicted
+nfor <- 30 # one month
+# set some options
+options(echo = FALSE,
+        warn = -1,
+        repos = "http://cran.us.r-project.org")
+# set the current file location as the default working directory
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+# check the working directory path
+# getwd()
+
+```
+
+### Installing packages and attaching libraries
+
+Several common packages used below must be installed (if needed) and the libraries attached.
+
+```{r echo=FALSE}
+# the function to install the packages if needed
+get_library <- function(packageTitle) {
+  # this function checks and loads the required package
+  if (!packageTitle %in% installed.packages())
+    install.packages(packageTitle, dependencies = TRUE)
+  #
+  suppressWarnings(suppressMessages({
+    # the package is assumed to be character strings
+    library(packageTitle, character.only = TRUE)
+  }))
+} # End the function get_library
+# the list of libraries
+libraries <-
+  c(
+    "data.table",
+    "dplyr",
+    "png",
+    "grid",
+    "moments",
+    "prophet",
+    "ggplot2",
+    "dissUtils"
+#   "see",
+#   "ggimage"
+    # "ggpmisc",
+   # "caret", # for model-building
+    # "gbm",
+   # "pROC" # for AUC calculations
+    )
+# import the libraries
+libraries <- lapply(libraries, get_library)
+
+```
+
+### Air quality data load
+
+
+```{r echo=FALSE}
+# set the data file name
+fileName <- "PM2.5.csv"
+# check if the file exists
+if (file.exists(fileName)) {
+  # load the data
+  df <- read.csv(file = fileName, stringsAsFactors = F) # , stringsAsFactors = FALSE , col_types = "cincicicicnni"
+} else print(paste("Error: there is no file", fileName, "in the working directory.")) 
+
+```
+
+### Data structure
+
+Here is the data structure.
+
+```{r echo=FALSE}
+# get the data structure
+str(df)
+
+```
+
+
+### Variable dictionary
+
+All information about the data set attributes may be found in [Air Data: Air Quality Data Collected at Outdoor Monitors Across the US](https://www.epa.gov/outdoor-air-quality-data)
+
+
+
+### Select, transform, and add variables
+
+```{r}
+# head(df, 10)
+# convert to date
+df$Date <-as.Date(strptime(df$Date, format = "%m/%d/%Y", tz = "")) # as.Date
+# remove insignificant columns
+df <- df[, c(1, 3, 5, 6, 11:13)]
+# add the weekend checking
+df$Is_Weekend <- weekdays(df$Date) %in% c('Sunday','Saturday')
+df$Site_Name <- as.factor(df$Site_Name)
+#
+sites <- levels(df$Site_Name)
+# get 
+summary(df)
+
+```
+
+
+### Descriptive statistics
+
+Let us take a look at the common summary of the data set.
+
+```{r}
+summary(df)
+```
+
+There are no missing, nor mistakable values. 
+
+### Correlation betweenthe variables
+
+Which variables are independent?
+
+```{r}
+plot(df$AQI, df$Daily_PM25)
+
+plot(df$AQI, df$POC)
+
+plot( df$Daily_PM25, df$POC)
+
+```
+
+
+## Chicago pollution spots
+
+```{r}
+img.file <- "chicago.png"
+# read a sample file (R logo)
+img <- readPNG(img.file)
+
+# get summary
+site_obs <- df[which(year(df$Date) == 2018), c(1, 2, 4:6)] %>% # pivot_longer(-Date) %>% 
+  group_by(Site_Name) %>% 
+  summarize(mean = mean(Daily_PM25), x = mean(Site_Long), y = mean(Site_Lat)) #  %>% fashion()
+
+aspect.ratio = 754/631 # Height to Width ratio of pixel sizes
+
+ggplot() +
+  annotation_custom(rasterGrob(img, width = unit(1, "npc"), height = unit(1, "npc")), -Inf, Inf, -Inf, Inf) +
+  geom_point(
+    aes(
+      x = as.numeric(x),
+      y = as.numeric(y),
+      size = as.numeric(mean)
+    ),
+    data = site_obs,
+    alpha = 0.5,
+    col = "red"
+  ) +
+  labs(
+    x = "",
+    y = "",
+    size = "PM-2.5 mean(2018)" 
+  ) + theme(aspect.ratio=aspect.ratio)
+
+```
+
+
+
+### Box and whiskers plots
+
+Boxplot compactly displays the distribution of a continuous variable. It visualizes five summary statistics (the median, two hinges and two whiskers), and all "outlying" points individually.
+
+```{r }
+# get the boxplot
+ggplot() + geom_boxplot(data = df,
+                        aes(
+                          x = Site_Name,
+                          y = Daily_PM25,
+                          fill = factor(Is_Weekend)
+                        ),
+                        alpha = 0.75) + labs(
+                          title =  paste(names(df)[2], "by", names(df)[4], "boxplot"),
+                          subtitle = paste("Grouped by", names(df)[8]),
+                          caption = paste("Source:", fileName),
+                          x = "",
+                          fill = names(df)[8]
+                        ) +
+  coord_flip()
+
+```
+
+
+Comparing the different boxplots above...
+
+
+### Smoothed density estimates
+
+In this section we computed and drawn for every continuous variable its kernel density estimate, which is a smoothed version of the histogram. This is an alternative to the histogram for continuous data that comes from an underlying smooth distribution.
+
+```{r}
+# loop over groups and numeric variables
+for (site in sites)
+  print(
+    ggplot() + geom_density(
+      data = df[df$Site_Name == site, ],
+      aes(
+        x = Daily_PM25,
+        fill = factor(Is_Weekend)
+      ),
+      alpha = 0.5
+    ) +
+      labs(
+        title =  paste(site, "- site:", names(df)[2], "distribution"),
+        subtitle = paste("Grouped by", names(df)[8]),
+        caption = paste("Source:", fileName),
+        x = "",
+        fill = names(df)[8]
+      )
+  )
+
+```
+
+Analyzing the above distributions...
+
+
+### Sites time series
+
+
+```{r eval=FALSE, include=FALSE, echo=FALSE}
+
+# loop over groups and numeric variables
+for (site in sites)
+  print(
+    ggplot() + geom_line(
+      data = df[df$Site_Name == site, ],
+      aes(
+        x = Date,
+        y = Daily_PM25
+        # col = factor(Is_Weekend)
+      ),
+      alpha = 0.75
+    ) +
+      labs(
+        title =  paste(i, "- site:", names(df)[2], "distribution"),
+        subtitle = paste("Grouped by", names(df)[8]),
+        caption = paste("Source:", fileName),
+        x = ""
+        # col = names(df)[8]
+      )
+  )
+
+
+```
+
+
+
+## Air pollution trends
+
+We used Machine Learning prediction model of the Prophet package to investigate the many years trends with different periodicity: weekly, monthly, yearly, and the total history trend. The closest future forecasts were also done formally. However, these predictions have low sense because of drastical influence of daily oscillations of the wind, humidity, precipities, and so on. All these factors produce the relatively wide confidence range as may be seen below.
+
+### Machine Learning model
+
+['Prophet'](https://facebook.github.io/prophet/) package was used for making `r nfor` days forecast.
+
+Results of the calculations are presented visually as the set of charts below. For every of the sites which detect pollutions we got two plots. The fisrt shows the observed level of pollution (PM 2.5) as black dots, the forward and backward prediction curve (blue line), and the 95% confidence interval as the blue band along conveyed the predictions. 
+
+It is interesting that total history trends may differ for different sites, also may differ weekly trends. However yearly trends look very similiar, and almost all of them are maximized in January. 
+
+Maybe, local factors should be used to investigate these pctures deeper. 
+
+```{r prophet}
+# the warning and error information
+logWarning <-
+  function(w) {
+    print(paste(site, "prophet warning", w))
+  }
+logError <- function(e) {
+  print(paste(site, "prophet error", e))
+}
+#
+# loop over groups and numeric variables
+for (site in sites) {
+  #
+  # create a data frame for further treatment
+  df.site <-
+    data.frame(
+      ds = df$Date[df$Site_Name == site],
+      y = df$Daily_PM25[df$Site_Name == site],
+      row.names = NULL,
+      stringsAsFactors = FALSE
+    )
+  #
+  # optimize the model
+  model <- tryCatch(
+    withCallingHandlers(
+      prophet(
+        df = df.site,
+        yearly.seasonality = TRUE,
+        weekly.seasonality = TRUE,
+        daily.seasonality = FALSE
+      ),
+      warning = function(w)
+        logWarning(w)
+    ),
+    error = function(e)
+      logError(e)
+  )
+  # prepare the template for the future predictions
+  future <-
+    make_future_dataframe(
+      model,
+      periods = nfor,
+      freq = "day",
+      include_history = TRUE
+    )
+  # forecast for 'nfor' days ahead (it also includes non trading days)
+  fcast <- predict(model, future)
+  print(paste("Forcast for the Site:", site))
+  print(head(fcast))
+  print(tail(fcast))
+  # plot the forecast with confindence intervals
+  print(plot(
+    model,
+    fcast,
+    xlabel = paste("Site:", site),
+    ylabel = "Daily PM 2.5"
+  ))
+  
+  # plot of the trend components of the forecast
+  prophet_plot_components(model, fcast)
+} 
+
+```
+
+Discussing seasonality...
+
+# Traffic
+
+### Traffic data load
+
+
+```{r echo=FALSE}
+# set the data file name
+fileName <- "Traffic Congestion Cleaned Data 2018 Chicago by Bilal.csv"
+# check if the file exists
+if (file.exists(fileName)) {
+  # load the data
+  dt <- fread(file = fileName) # , stringsAsFactors = FALSE , col_types = "cincicicicnni"
+} else print(paste("Error: there is no file", fileName, "in the working directory.")) 
+
+```
+
+
+
+### Data structure
+
+Here is the data structure.
+
+```{r echo=FALSE}
+
+length(unique(dt$START_LOCATION))
+
+length(unique(dt$END_LOCATION))
+
+
+length(unique(dt$START_LATITUDE))
+length(unique(dt$END_LATITUDE))
+
+length(unique(dt$START_LONGITUDE))
+length(unique(dt$END_LONGITUDE))
+
+dt <- dt[, c(13:15, 17:20, 24)]
+# get the data structure
+str(dt)
+summary(dt)
+```
+
+
+### Variable dictionary
+
+
+## Trafic cluster
+
+We classify the congestion by its nearest pollution detection site. For this aim the matrix of starting and ending coordinates of was created, and the nearest neighboring site for every record was found. Then the data was gropped by the sites label and the number of records in every group was divided by the total number of rows. This way a relative measure of the mean traffic load for every of the sites was calculated.
+
+
+```{r}
+length(c(dt$START_LONGITUDE, dt$END_LONGITUDE))
+length(c(dt$START_LATITUDE, dt$END_LATITUDE))
+# 
+congestions <-
+  matrix(
+    c(dt$START_LONGITUDE, dt$END_LONGITUDE, dt$START_LATITUDE, dt$END_LATITUDE), nrow = 2, ncol = 2*nrow(dt), byrow = TRUE)
+  
+congestions <- t(congestions)
+
+
+xlim <- c(min(congestions[,1]), max(congestions[,1]))
+ylim <- c(min(congestions[,2]), max(congestions[,2]))
+
+centers <- matrix(c(site_obs$x, site_obs$y), nrow = 2, ncol = nrow(site_obs), byrow = TRUE)
+centers<- t(centers)
+
+row.names(centers) <- site_obs$Site_Name
+zz <- NULL
+for (j in 1:nrow(centers)) {
+z <-  dissUtils::neighbors(congestions, matrix(centers[j,], nrow = 1))
+colnames(z) <- site_obs$Site_Name[j]
+zz <- cbind(zz, z)
+
+}
+
+z <- apply(zz, 1, function(x) colnames(zz)[which.min(x)])
+
+trafic_load <- as.data.frame(table(z)/length(z))
+
+colnames(trafic_load)[1] <- "Site_Name"
+
+
+```
+
+## Trafic load on Chicago sites
+
+```{r}
+
+trafic_load <- merge(site_obs, trafic_load,  by = "Site_Name") # , by.y = "Site_Name"
+
+ggplot() +
+  annotation_custom(rasterGrob(img, width = unit(1, "npc"), height = unit(1, "npc")), -Inf, Inf, -Inf, Inf) +
+  geom_point(
+    aes(
+      x = as.numeric(x),
+      y = as.numeric(y),
+      size = as.numeric(Freq)*100
+    ),
+    data = trafic_load,
+    alpha = 0.5,
+    col = "black"
+  ) +
+  labs(
+    x = "",
+    y = "",
+    size = "Trafic Load (%)" 
+  ) + theme(aspect.ratio=aspect.ratio )
+
+```
+
+
+## Traffic trands
+
+
+```{r}
+
+# get the table
+dt.date <- as.data.frame(table(dt$Date)/nrow(dt)*100)
+# rename
+names(dt.date)[1] <- "Date"
+# convert to date
+dt.date$Date <- as.Date(strftime(as.character(dt.date$Date), format = "%Y-%m-%d", tz = ""))
+# plot daily
+plot(dt.date, type = "l", xlab = "", ylab = "Traffic Load (%)", col = "red", main = "Daily Traffic Load in March, 2018")
+#
+# get the table
+dt.hour_week <- as.data.frame(table(dt$HOUR, dt$DAY_OF_WEEK)/nrow(dt)*100)
+# rename
+names(dt.hour_week)[1:2] <- c("Hour", "Day_of_week")
+
+dow <- c('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')
+
+mine.heatmap <- ggplot(data = dt.hour_week, mapping = aes(x = Hour, y = Day_of_week, fill = Freq)) +
+  geom_tile() +
+  labs(
+    x = "Hour",
+    y = "Day of Week",
+    fill = "Traffic (%)" 
+  )
+mine.heatmap
+
+
+
+```
+
+The daily traffic load curve has the obvious weekly periodicity which may be also observed in the heatmap by hours and days of week. The most of the traffic hit on 17 o'clock Wednesday. Minimal loads are observed after midnight and on weekend.
+
+
+
+
+
+```{r  eval=FALSE, include=FALSE, echo=FALSE}
+
+
+```
