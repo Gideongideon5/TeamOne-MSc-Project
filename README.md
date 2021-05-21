@@ -7,6 +7,8 @@ The repository is for MSc Group Project for MSc Student at the University of Bra
 - Bilal Khan
 - Gideon Gideon
 - Amjad Ali
+
+
 The Projects looks at identifying highly congested traffic zones within the city of Chicago and finding possible correlation with the air quality monitors in proximity. Machine learning algorithms are implemented on the data in two phases Phase one
 
 The algorithms are implemented on data extract from 2018 with 4 idenfied zones in the air quality index
